@@ -1,67 +1,58 @@
-import os
 import cv2
 import numpy as np
-import tensorflow as tf
-import pandas as pd
 import matplotlib.pyplot as plt
+import tensorflow as tf
+import os 
 
 model = tf.keras.models.load_model("model.keras")
 
-image_folder = "data/"
-image_files = [f for f in os.listdir(image_folder) if f.lower().endswith(('.png', '.jpg', '.jpeg'))]
-image_files = image_files[:]
+data_dir = "data"
+output_dir = "outputs"
+os.makedirs(output_dir, exist_ok=True) 
 
-images, file_names, true_labels = [], [], []
+image_files = [f for f in os.listdir(data_dir) if f.endswith("-image.png")]
+image_files.sort() 
 
-for filename in image_files:
-    path = os.path.join(image_folder, filename)
-    img = cv2.imread(path, cv2.IMREAD_GRAYSCALE)
+for img_file in image_files:
+    img_path = os.path.join(data_dir, img_file)
+    original = cv2.imread(img_path, cv2.IMREAD_GRAYSCALE)
+    original_display = original.copy()
 
-    if img is None:
-        print(f"Görsel okunamadı!: {filename}")
-        continue
+    resized = cv2.resize(original, (28, 28))
+    resized_norm = resized / 255.0
+    input_image = resized_norm.reshape(1, 28, 28, 1)
 
-    img_resized = cv2.resize(img, (28, 28))
-    images.append(np.expand_dims(img_resized / 255.0, axis=-1))
-    file_names.append(filename)
+    predictions = model.predict(input_image)[0]
+    predicted_digit = np.argmax(predictions)
 
-    try:
-        label = int(filename.split('_')[0])
-    except ValueError:
-        print(f"Dosya ismi ayrıştırılamadı!: {filename}")
-        continue
-    true_labels.append(label)
+    print(f"\nGörsel: {img_file}")
+    print("Rakamların Güven Skoru:")
+    for i, score in enumerate(predictions):
+        print(f"Rakam {i}: {score * 100:.2f}%")
+    print(f"Tahmin Edilen Rakam: {predicted_digit}")
 
-images_np = np.array(images) 
-predictions = model.predict(images_np)
-predicted_classes = np.argmax(predictions, axis=1)
+    fig, axs = plt.subplots(1, 3, figsize=(12, 4))
 
-# Doğruluk hesapla
-accuracy = np.mean(np.array(true_labels) == predicted_classes)
-print(f"Doğruluk: {accuracy:.2%}")
+    # orijinal resim 
+    axs[0].imshow(original_display, cmap='gray')
+    axs[0].set_title("Original Image")
+    axs[0].axis('off')
 
-df = pd.DataFrame({
-    "Dosya Adı": file_names,
-    "Gerçek Etiket": true_labels,
-    "Tahmin Edilen": predicted_classes
-})
+    # 28x28 yeniden boyutlandırılmış hali
+    axs[1].imshow(resized_norm, cmap='gray')
+    axs[1].set_title("Resize Image")
+    axs[1].axis('off')
 
-df.to_csv("tahmin_sonuclari.csv", index=False, encoding="utf-8")
-print("CSV dosyası kaydedildi.")
+    # güven skoru grafiği
+    axs[2].bar(range(10), predictions * 100)
+    axs[2].set_xticks(range(10))
+    axs[2].set_xlabel("Rakam")
+    axs[2].set_ylabel("Güven Oranı (%)")
+    axs[2].set_title(f"Predict Result: {predicted_digit}")
 
-# Görselleştirme
-plt.figure(figsize=(10, 6))
-for i in range(len(images_np)):
-    plt.subplot(2, 5, i+1)
-    plt.imshow(images_np[i].reshape(28, 28), cmap="gray")
-    plt.title(f"{file_names[i]}\nTahmin: {predicted_classes[i]}")
-    plt.axis("off")
-plt.suptitle("Görsellerin Tahminleri", fontsize=16)
-plt.show()
-
-
-
-
-
-
-
+    output_path = os.path.join(output_dir, img_file.replace("-image.png", "-output.png"))
+    plt.tight_layout()
+    plt.savefig(output_path)  
+    plt.show()              
+    plt.close(fig)            
+print("Tüm çıktılar outputs klasörüne kaydedildi.")
