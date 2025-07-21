@@ -20,7 +20,7 @@ pip install tensorflow opencv-python numpy matplotlib
 - **NumPy**: Sayısal işlemler
 - **Matplotlib**: Görselleştirme
 
-## 📊 Model Mimarisi
+## Model Mimarisi
 
 CNN modeli aşağıdaki katmanlardan oluşur:
 
